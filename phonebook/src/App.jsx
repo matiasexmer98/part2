@@ -1,18 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Filter from "./components/Filter";
 import PersonForm from "./components/PersonForm";
 import Persons from "./components/Persons";
+import axios from "axios";
+import personService from "./services/persons";
 
 const App = () => {
-  const [persons, setPersons] = useState([
-    { name: "Arto Hellas", number: "040-123456", id: 1 },
-    { name: "Ada Lovelace", number: "39-44-5323523", id: 2 },
-    { name: "Dan Abramov", number: "12-43-234345", id: 3 },
-    { name: "Mary Poppendieck", number: "39-23-6423122", id: 4 },
-  ]);
+  const [persons, setPersons] = useState([]);
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState();
   const [filter, setFilter] = useState("");
+
+  useEffect(() => {
+    personService.getAll().then((initialPersons) => {
+      setPersons(initialPersons);
+    });
+  }, []);
 
   // const namesToShow = setShowAll ? persons : persons.filter(person => person.name === )
 
@@ -24,12 +27,41 @@ const App = () => {
     };
 
     if (persons.some((person) => person.name === nameAndNumberObject.name)) {
-      alert(`${newName} is already added to the ponebook`);
+      if (
+        window.confirm(
+          `${newName} is already added to the ponebook, do you want to update the number?`
+        )
+      ) {
+        const personToUpdateId = persons.find(
+          (person) => person.name === newName
+        ).id;
+        personService
+          .update(personToUpdateId, nameAndNumberObject)
+          .then((response) => {
+            setPersons(
+              persons.map((person) =>
+                person.id === personToUpdateId ? response.data : person
+              )
+            );
+          });
+      }
     } else {
-      setPersons(persons.concat(nameAndNumberObject));
+      personService.create(nameAndNumberObject).then((newPerson) => {
+        setPersons(persons.concat(newPerson));
+        setNewName("");
+        setNewNumber("");
+      });
+    }
+  };
 
-      setNewName(" ");
-      setNewNumber(" ");
+  const deletePerson = (id) => {
+    const personToDelete = persons.find((person) => person.id === id);
+    if (window.confirm(`Delete ${personToDelete.name}?`)) {
+      personService
+        .deletePersonM(id)
+        .then((response) =>
+          setPersons(persons.filter((person) => person.id !== id))
+        );
     }
   };
 
@@ -42,7 +74,6 @@ const App = () => {
   };
 
   const handleFilterChange = (e) => {
-    console.log(e.target.value);
     setFilter(e.target.value);
   };
 
@@ -52,7 +83,7 @@ const App = () => {
       : persons.filter((person) =>
           person.name.toLowerCase().includes(filter.toLowerCase())
         );
-  console.log(filteredPersons);
+
   return (
     <div>
       <h2>Phonebook</h2>
@@ -81,7 +112,7 @@ const App = () => {
         setNewNumber={setNewNumber}
       />
       <h2>Numbers</h2>
-      <Persons filteredPersons={filteredPersons} />
+      <Persons filteredPersons={filteredPersons} deletePerson={deletePerson} />
     </div>
   );
 };
